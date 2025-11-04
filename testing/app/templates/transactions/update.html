@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Управление справочниками{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Управление справочниками</h1>
+</div>
+
+<div class="row">
+
+    <!-- Статус -->
+
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Статусы транзакций</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_status">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">Новый статус</label>
+                            <input type="text" name="status_name" class="form-control" placeholder="Введите название статуса" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success w-100">Добавить статус</button>
+                        </div>
+                    </div>
+                </form>
+                {% include "transactions/_reference_table.html" with items=statuses item_type="status" name_field="name" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Тип -->
+     
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Типы операций</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_type">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">Новый тип операции</label>
+                            <input type="text" name="type_name" class="form-control" placeholder="Введите название типа операции" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success w-100">Добавить тип</button>
+                        </div>
+                    </div>
+                </form>
+                {% include "transactions/_reference_table.html" with items=types item_type="type" name_field="name" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Категория -->
+
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Категории</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_category">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">Новая категория</label>
+                            <input type="text" name="category_name" class="form-control" placeholder="Введите название категории" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success w-100">Добавить категорию</button>
+                        </div>
+                    </div>
+                </form>
+                {% include "transactions/_reference_table.html" with items=categories item_type="category" name_field="name" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Подкатегория -->
+
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Подкатегории</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_subcategory">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Новая подкатегория</label>
+                            <input type="text" name="subcategory_name" class="form-control" placeholder="Введите название подкатегории" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Категория</label>
+                            <select name="category_id" class="form-control" required>
+                                <option value="">Выберите категорию</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-success w-100">Добавить подкатегорию</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Название subcategory</th>
+                                <th>Категория</th>
+                                <th width="120" class="text-center">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subcategory in subcategories %}
+                            <tr>
+                                <td><strong>{{ subcategory.name }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ subcategory.category.name }}</span></td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            onclick="editSubcategory({{ subcategory.id }}, '{{ subcategory.name }}', {{ subcategory.category.id }})">
+                                        ✏️
+                                    </button>
+                                    <form method="post" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete_subcategory">
+                                        <input type="hidden" name="subcategory_id" value="{{ subcategory.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                onclick="return confirm('Удалить подкатегорию \"{{ subcategory.name }}\"?')">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-3">Нет подкатегорий</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="edit_action">
+                <input type="hidden" name="edit_id" id="edit_id">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalTitle">Редактировать</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="editModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+    function editStatus(id, name) {
+        showEditModal('edit_status', id, name, 'статус');
+    }
+
+    function editType(id, name) {
+        showEditModal('edit_type', id, name, 'тип операции');
+    }
+
+    function editCategory(id, name) {
+        showEditModal('edit_category', id, name, 'категорию');
+    }
+
+    function editSubcategory(id, name, categoryId) {
+        document.getElementById('edit_action').value = 'edit_subcategory';
+        document.getElementById('edit_id').value = id;
+        document.getElementById('editModalTitle').textContent = 'Редактировать';
+        
+        const modalBody = document.getElementById('editModalBody');
+        modalBody.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Название подкатегории</label>
+                <input type="text" name="subcategory_name" class="form-control" value="${name}" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Категория</label>
+                <select name="category_id" class="form-control" required>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" ${'{{ category.id }}' == categoryId ? 'selected' : ''}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        `;
+        
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    function showEditModal(action, id, name, title) {
+        document.getElementById('edit_action').value = action;
+        document.getElementById('edit_id').value = id;
+        document.getElementById('editModalTitle').textContent = `Редактировать ${title}`;
+        
+        const modalBody = document.getElementById('editModalBody');
+        const fieldName = action.replace('edit_', '') + '_name';
+        modalBody.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Название</label>
+                <input type="text" name="${fieldName}" class="form-control" value="${name}" required>
+            </div>
+        `;
+        
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+</script>
+{% endblock %}

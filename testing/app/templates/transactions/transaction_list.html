@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Список транзакций{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Таблица транзакций</h1>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">🔍 Фильтры</h5>
+        <div>
+            <button class="btn btn-sm btn-primary" id="apply-filters">Применить</button>
+            <button class="btn btn-sm btn-outline-secondary" id="clear-filters">Сбросить</button>
+        </div>
+    </div>
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end" id="filter-form">
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Дата от</label>
+                <input type="date" class="form-control form-control-sm" id="date-from">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Дата до</label>
+                <input type="date" class="form-control form-control-sm" id="date-to">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Статус</label>
+                <select class="form-control form-control-sm" id="status-filter">
+                    <option value="">Все</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Тип</label>
+                <select class="form-control form-control-sm" id="type-filter">
+                    <option value="">Все</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Категория</label>
+                <select class="form-control form-control-sm" id="category-filter">
+                    <option value="">Все</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Подкатегория</label>
+                <select class="form-control form-control-sm" id="subcategory-filter">
+                    <option value="">Все</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="transactions-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Дата создания</th>
+                        <th>Статус</th>
+                        <th>Тип</th>
+                        <th>Категория</th>
+                        <th>Подкатегория</th>
+                        <th class="text-end">Сумма</th>
+                        <th>Комментарий</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-body">
+                </tbody>
+            </table>
+        </div>
+        <div id="loading" class="text-center py-4" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+        </div>
+        <div id="pagination" class="d-flex justify-content-between align-items-center mt-3">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Загружаем jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+class TransactionManager {
+    constructor() {
+        this.filters = {};
+    }
+
+    async init() {
+        await this.loadCategories();
+        await this.loadStatuses();
+        await this.loadTransactionTypes();
+        this.setupEventListeners();
+        await this.loadTransactions();
+    }
+
+    setupEventListeners() {
+        $('#apply-filters').click(() => this.applyFilters());
+        $('#clear-filters').click(() => this.clearFilters());
+        $('#category-filter').change(() => this.loadSubcategories());
+    }
+
+    async loadCategories() {
+        try {
+            const response = await fetch('/api/categories/');
+            const categories = await response.json();
+            const select = $('#category-filter');
+            categories.forEach(cat => {
+                select.append(`<option value="${cat.id}">${cat.name}</option>`);
+            });
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    async loadStatuses() {
+        try {
+            const response = await fetch('/api/statuses/');
+            const statuses = await response.json();
+            const select = $('#status-filter');
+            statuses.forEach(status => {
+                select.append(`<option value="${status.name}">${status.name}</option>`);
+            });
+        } catch (error) {
+            console.error('Error loading statuses:', error);
+        }
+    }
+
+    async loadTransactionTypes() {
+        try {
+            const response = await fetch('/api/transaction-types/');
+            const types = await response.json();
+            const select = $('#type-filter');
+            types.forEach(type => {
+                select.append(`<option value="${type.name}">${type.name}</option>`);
+            });
+        } catch (error) {
+            console.error('Error loading transaction types:', error);
+        }
+    }
+
+    async loadSubcategories() {
+        const categoryId = $('#category-filter').val();
+        const select = $('#subcategory-filter');
+        select.empty().append('<option value="">Все подкатегории</option>');
+        
+        if (categoryId) {
+            try {
+                const response = await fetch(`/api/subcategories/?category_id=${categoryId}`);
+                const subcategories = await response.json();
+                subcategories.forEach(sub => {
+                    select.append(`<option value="${sub.id}">${sub.name}</option>`);
+                });
+            } catch (error) {
+                console.error('Error loading subcategories:', error);
+            }
+        }
+    }
+
+    buildQueryParams() {
+        const params = new URLSearchParams();
+        
+        if (this.filters.date_from) params.append('created_date_after', this.filters.date_from);
+        if (this.filters.date_to) params.append('created_date_before', this.filters.date_to);
+        if (this.filters.status) params.append('status', this.filters.status);
+        if (this.filters.transaction_type) params.append('transaction_type', this.filters.transaction_type);
+        if (this.filters.category) params.append('category', this.filters.category);
+        if (this.filters.subcategory) params.append('subcategory', this.filters.subcategory);
+        
+        return params.toString();
+    }
+
+    async loadTransactions() {
+        $('#loading').show();
+        $('#transactions-body').empty();
+        
+        try {
+            const queryParams = this.buildQueryParams();
+            const apiUrl = `/api/transactions/${queryParams ? '?' + queryParams : ''}`;
+            
+            const response = await fetch(apiUrl);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            this.renderTransactions(data);
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            $('#transactions-body').html(
+                '<tr><td colspan="8" class="text-center text-danger">Ошибка загрузки данных</td></tr>'
+            );
+        } finally {
+            $('#loading').hide();
+        }
+    }
+
+    renderTransactions(transactions) {
+        const tbody = $('#transactions-body');
+        
+        if (!transactions || transactions.length === 0) {
+            tbody.html('<tr><td colspan="8" class="text-center py-4">Нет данных для отображения</td></tr>');
+            return;
+        }
+        
+        transactions.forEach(transaction => {
+            const createdDate = new Date(transaction.created_date);
+            const formattedDate = createdDate.toLocaleDateString('ru-RU');
+            
+            const row = `
+                <tr>
+                    <td>${formattedDate}</td>
+                    <td>
+                        <span class="badge ${this.getStatusBadgeClass(transaction.status)}">
+                            ${transaction.status_display || transaction.status || '—'}
+                        </span>
+                    </td>
+                    <td>${transaction.transaction_type_display || transaction.transaction_type || '—'}</td>
+                    <td>${transaction.category_name || transaction.category?.name || '—'}</td>
+                    <td>${transaction.subcategory_name || transaction.subcategory?.name || '—'}</td>
+                    <td class="text-end ${transaction.transaction_type === 'Пополнение' ? 'positive' : 'negative'}">
+                        ${parseFloat(transaction.amount || 0).toFixed(2)} руб.
+                    </td>
+                    <td>${transaction.comment || '-'}</td>
+                    <td>
+                        <a href="/create/${transaction.id}/" class="btn btn-sm btn-outline-primary">
+                            ✏️ Редактировать
+                        </a>
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+    }
+
+    getStatusBadgeClass(status) {
+        const classes = {
+            'Бизнес': 'bg-primary',
+            'Личное': 'bg-success',
+            'Налог': 'bg-warning',
+            'Прочее': 'bg-secondary'
+        };
+        return classes[status] || 'bg-secondary';
+    }
+
+    applyFilters() {
+        this.filters = {
+            date_from: $('#date-from').val(),
+            date_to: $('#date-to').val(),
+            status: $('#status-filter').val(),
+            transaction_type: $('#type-filter').val(),
+            category: $('#category-filter').val(),
+            subcategory: $('#subcategory-filter').val()
+        };
+        this.loadTransactions();
+    }
+
+    clearFilters() {
+        $('#filter-form').find('input, select').val('');
+        this.filters = {};
+        this.loadTransactions();
+    }
+}
+
+// Инициализация
+$(document).ready(function() {
+    const transactionManager = new TransactionManager();
+    transactionManager.init();
+});
+</script>
+
+<style>
+.positive { color: #28a745; font-weight: bold; }
+.negative { color: #dc3545; font-weight: bold; }
+</style>
+{% endblock %}
